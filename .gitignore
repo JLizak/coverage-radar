@@ -1,0 +1,28 @@
+# prywatne notatki
+/PLAN.md
+/TUTORIAL.md
+
+# dane: pobierane z SEC albo odtwarzane poleceniami
+/data/raw/
+/data/cache/
+/data/processed/*
+!/data/processed/.gitkeep
+
+# środowisko i sekrety
+.venv/
+.env
+
+# artefakty Pythona i narzędzi
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.ruff_cache/
+.pytest_cache/
+
+# artefakty R
+.Rhistory
+.RData
+.Rproj.user/
+rsconnect/
