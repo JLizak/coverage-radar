@@ -26,3 +26,6 @@ dist/
 .RData
 .Rproj.user/
 rsconnect/
+
+# notebooki
+.ipynb_checkpoints/

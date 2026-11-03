@@ -10,7 +10,6 @@ TABLES = ["SUBMISSION.tsv", "COVERPAGE.tsv", "INFOTABLE.tsv", "SUMMARYPAGE.tsv"]
 RAW_DIR = Path("data/raw")
 OUTPUT_DIR = Path("data/processed")
 
-# Kolumny, które dostają konkretny typ. Reszta zostaje tekstem, żeby CIK i CUSIP nie straciły zer.
 DATE_FORMAT = "%d-%b-%Y"  # np. 31-MAR-2026
 CONVERSIONS = {
     "SUBMISSION": {
