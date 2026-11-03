@@ -1,7 +1,7 @@
 import duckdb as db
 import pytest
 
-from radar.panel import active_filings
+from radar.panel import active_filings, build_positions, positions
 
 PERIOD = "2024-03-31"
 
@@ -17,14 +17,24 @@ def make_con(rows: list[tuple]) -> db.DuckDBPyConnection:
     """)
     con.execute("""
         CREATE TABLE coverpage (
-            ACCESSION_NUMBER VARCHAR, AMENDMENTNO VARCHAR, AMENDMENTTYPE VARCHAR
+            ACCESSION_NUMBER VARCHAR, AMENDMENTNO VARCHAR, AMENDMENTTYPE VARCHAR,
+            REPORTTYPE VARCHAR DEFAULT '13F HOLDINGS REPORT'
+        )
+    """)
+    con.execute("""
+        CREATE TABLE infotable (
+            ACCESSION_NUMBER VARCHAR, CUSIP VARCHAR, VALUE BIGINT, SSHPRNAMT BIGINT,
+            SSHPRNAMTTYPE VARCHAR, PUTCALL VARCHAR
         )
     """)
     for accession, filed, kind, cik, period, number, amendment in rows:
         con.execute(
             "INSERT INTO submission VALUES (?, ?, ?, ?, ?)", [accession, filed, kind, cik, period]
         )
-        con.execute("INSERT INTO coverpage VALUES (?, ?, ?)", [accession, number, amendment])
+        con.execute(
+            "INSERT INTO coverpage (ACCESSION_NUMBER, AMENDMENTNO, AMENDMENTTYPE) VALUES (?, ?, ?)",
+            [accession, number, amendment],
+        )
     return con
 
 
@@ -91,3 +101,118 @@ def test_filers_and_quarters_are_separate():
     other_quarter = ("next", "2024-08-10", "13F-HR", "0000000001", "2024-06-30", None, None)
     result = accessions([ORIGINAL, RESTATED, other_filer, other_quarter])
     assert sorted(result) == ["next", "other", "rest"]
+
+
+CUSIP = "123456789"
+
+
+def add_lines(con: db.DuckDBPyConnection, lines: list[tuple]) -> None:
+    """Wiersz: (accession, CUSIP, wartość, akcje, typ, put/call)."""
+    con.executemany("INSERT INTO infotable VALUES (?, ?, ?, ?, ?, ?)", lines)
+
+
+def holdings(con: db.DuckDBPyConnection, days: int | None = None) -> dict:
+    return {(row[0], row[2]): (row[3], row[4]) for row in positions(con, days).fetchall()}
+
+
+def test_lines_of_one_security_are_summed():
+    con = make_con([ORIGINAL])
+    add_lines(
+        con,
+        [
+            ("orig", CUSIP, 3000, 60, "SH", None),
+            ("orig", CUSIP, 2000, 40, "SH", None),
+        ],
+    )
+    assert holdings(con) == {("0000000001", CUSIP): (5000, 100)}
+
+
+def test_lowercase_cusip_is_the_same_security():
+    con = make_con([ORIGINAL])
+    add_lines(
+        con,
+        [
+            ("orig", "abc123456", 1000, 10, "SH", None),
+            ("orig", "ABC123456", 2000, 20, "SH", None),
+        ],
+    )
+    assert holdings(con) == {("0000000001", "ABC123456"): (3000, 30)}
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        ("orig", CUSIP, 9000, 90, "SH", "Put"),
+        ("orig", CUSIP, 9000, 90, "SH", "Call"),
+        ("orig", CUSIP, 9000, 90, "PRN", None),
+        ("orig", "000000000", 9000, 90, "SH", None),
+    ],
+)
+def test_lines_that_are_not_counted(line):
+    con = make_con([ORIGINAL])
+    add_lines(con, [("orig", CUSIP, 1000, 10, "SH", None), line])
+    assert holdings(con) == {("0000000001", CUSIP): (1000, 10)}
+
+
+def test_new_holdings_add_to_the_base():
+    con = make_con([ORIGINAL, ADDED_BEFORE])
+    add_lines(
+        con,
+        [
+            ("orig", CUSIP, 1000, 10, "SH", None),
+            ("add1", CUSIP, 500, 5, "SH", None),
+        ],
+    )
+    assert holdings(con) == {("0000000001", CUSIP): (1500, 15)}
+
+
+def test_restatement_replaces_positions():
+    con = make_con([ORIGINAL, RESTATED])
+    add_lines(
+        con,
+        [
+            ("orig", CUSIP, 1000, 10, "SH", None),
+            ("orig", "AAA111111", 7000, 70, "SH", None),
+            ("rest", CUSIP, 2000, 20, "SH", None),
+        ],
+    )
+    assert holdings(con) == {("0000000001", CUSIP): (2000, 20)}
+
+
+def test_each_call_uses_its_own_version():
+    con = make_con([ORIGINAL, RESTATED])
+    add_lines(
+        con,
+        [
+            ("orig", CUSIP, 1000, 10, "SH", None),
+            ("rest", CUSIP, 2000, 20, "SH", None),
+        ],
+    )
+    point_in_time = positions(con, 50)
+    final = positions(con, None)
+    assert point_in_time.fetchall()[0][4] == 10
+    assert final.fetchall()[0][4] == 20
+
+
+def test_combination_report_is_flagged():
+    con = make_con([ORIGINAL])
+    add_lines(con, [("orig", CUSIP, 1000, 10, "SH", None)])
+    assert positions(con, None).fetchall()[0][5] is False
+    con.execute("UPDATE coverpage SET REPORTTYPE = '13F COMBINATION REPORT'")
+    assert positions(con, None).fetchall()[0][5] is True
+
+
+def test_build_writes_both_versions(tmp_path):
+    con = make_con([ORIGINAL, RESTATED])
+    add_lines(
+        con,
+        [
+            ("orig", CUSIP, 1000, 10, "SH", None),
+            ("rest", CUSIP, 2000, 20, "SH", None),
+        ],
+    )
+    build_positions(con, tmp_path)
+    read = "SELECT shares FROM '{}'"
+    assert con.sql(read.format(tmp_path / "positions_pit.parquet")).fetchall() == [(10,)]
+    assert con.sql(read.format(tmp_path / "positions_final.parquet")).fetchall() == [(20,)]
+    assert list(tmp_path.glob("*.tmp")) == []

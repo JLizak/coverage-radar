@@ -8,7 +8,8 @@ WITH reports AS (
         s.PERIODOFREPORT,
         s.FILING_DATE,
         c.AMENDMENTNO,
-        c.AMENDMENTTYPE
+        c.AMENDMENTTYPE,
+        c.REPORTTYPE
     FROM submission s
     JOIN coverpage c ON s.ACCESSION_NUMBER = c.ACCESSION_NUMBER
     WHERE s.SUBMISSIONTYPE IN ('13F-HR', '13F-HR/A')
@@ -40,7 +41,7 @@ with_base AS (
 )
 
 -- Zostają baza i wszystko po niej. Para bez bazy ma base_rn = NULL i odpada.
-SELECT ACCESSION_NUMBER, CIK, PERIODOFREPORT, FILING_DATE, AMENDMENTTYPE
+SELECT ACCESSION_NUMBER, CIK, PERIODOFREPORT, FILING_DATE, AMENDMENTTYPE, REPORTTYPE
 FROM with_base
 WHERE rn >= base_rn
 ORDER BY CIK, PERIODOFREPORT, rn
