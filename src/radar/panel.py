@@ -39,9 +39,22 @@ def active_filings(
 def positions(
     con: db.DuckDBPyConnection, days_after_period: int | None = POINT_IN_TIME_DAYS
 ) -> db.DuckDBPyRelation:
-    """Stan portfela: filer + kwartał + papier. Parametr działa jak w active_filings."""
-    # Podstawiamy active_filings jako CTE, żeby jedno zapytanie nie zależało od stanu po drugim.
-    query = f"WITH active AS (\n{read_sql('active_filings')}\n)\n{read_sql('positions')}"
+    """Stan portfela: filer + kwartał + papier, z korektą jednostek.
+
+    Parametr działa jak w active_filings.
+    """
+    # Składamy zapytania jako CTE, żeby jedno wywołanie nie zależało od stanu po drugim.
+    query = f"""
+        WITH active AS (
+        {read_sql("active_filings")}
+        ),
+        raw AS (
+        {read_sql("positions")}
+        )
+        SELECT * FROM (
+        {read_sql("unit_corrections")}
+        )
+    """
     return con.sql(query, params={"days": days_after_period})
 
 

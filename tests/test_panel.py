@@ -216,3 +216,61 @@ def test_build_writes_both_versions(tmp_path):
     assert con.sql(read.format(tmp_path / "positions_pit.parquet")).fetchall() == [(10,)]
     assert con.sql(read.format(tmp_path / "positions_final.parquet")).fetchall() == [(20,)]
     assert list(tmp_path.glob("*.tmp")) == []
+
+
+UNIT_CUSIPS = [f"CUSIP{number:04d}" for number in range(6)]
+
+
+def con_with_market(target_lines: list[tuple]) -> db.DuckDBPyConnection:
+    """20 filerów w dolarach ustala cenę 50 USD, a badany filer ma raport "orig"."""
+    others = [
+        (f"f{number}", "2024-05-10", "13F-HR", f"{number + 100:010d}", PERIOD, None, None)
+        for number in range(20)
+    ]
+    con = make_con([ORIGINAL, *others])
+    lines = [(row[0], cusip, 5000, 100, "SH", None) for row in others for cusip in UNIT_CUSIPS]
+    add_lines(con, lines + target_lines)
+    return con
+
+
+def target_rows(con: db.DuckDBPyConnection) -> list[tuple]:
+    query = """
+        SELECT value_usd, value_corrected, unit_status FROM result
+        WHERE CIK = '0000000001' ORDER BY CUSIP
+    """
+    result = positions(con, None)
+    return result.query("result", query).fetchall()
+
+
+def lines_in_thousands(count: int) -> list[tuple]:
+    return [("orig", cusip, 5, 100, "SH", None) for cusip in UNIT_CUSIPS[:count]]
+
+
+def lines_in_dollars(count: int, start: int = 0) -> list[tuple]:
+    cusips = UNIT_CUSIPS[start : start + count]
+    return [("orig", cusip, 5000, 100, "SH", None) for cusip in cusips]
+
+
+def test_report_in_thousands_is_multiplied():
+    con = con_with_market(lines_in_thousands(5))
+    assert target_rows(con) == [(5, 5000, "thousands")] * 5
+
+
+def test_report_in_dollars_is_left_alone():
+    con = con_with_market(lines_in_dollars(5))
+    assert target_rows(con) == [(5000, 5000, "dollars")] * 5
+
+
+def test_mixed_report_is_dropped():
+    con = con_with_market(lines_in_thousands(3) + lines_in_dollars(3, start=3))
+    assert target_rows(con) == []
+
+
+def test_small_report_is_flagged_but_not_corrected():
+    con = con_with_market(lines_in_thousands(2))
+    assert target_rows(con) == [(5, 5, "too_few_rows")] * 2
+
+
+def test_report_without_widely_held_securities_stays_unchecked():
+    con = con_with_market([("orig", "RARE00000", 5, 100, "SH", None)])
+    assert target_rows(con) == [(5, 5, "unchecked")]
