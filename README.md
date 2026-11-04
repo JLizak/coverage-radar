@@ -183,4 +183,4 @@ The MVP answers one question: who to call. Planned extensions, each with its own
 
 ## Author
 
-Jeremiasz Lizak · [jlizak.com](https://jlizak.com) · [LinkedIn](https://linkedin.com/in/jeremiasz-lizak)
+Jeremiasz Lizak · [jlizak.com](https://jlizak.com) · [LinkedIn](https://linkedin.com/in/jeremiasz-lizak-804851405)
