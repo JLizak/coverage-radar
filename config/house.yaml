@@ -1,0 +1,6 @@
+# Rodzina domowa: ETF-y, które udają "nasze" fundusze.
+# Uzasadnienie: docs/decisions.md. Dowody: notebooks/03_house_family.ipynb.
+name: JPMorgan
+cusip_prefixes:
+  - 46641Q
+  - 46654Q

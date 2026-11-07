@@ -48,3 +48,40 @@ Dowody: `notebooks/01_unit_errors.ipynb`. Kod: `src/radar/sql/unit_corrections.s
 - Przy dużych faktorach tolerancja 2% przepuszcza nietypowe proporcje (np. 16,5 i 21). To kilka przypadków do ręcznego sprawdzenia.
 
 Dowody: `notebooks/02_splits.ipynb`. Kod: `src/radar/sql/splits.sql`.
+
+## Rodzina domowa i próg pozytywu
+
+**Problem.** Projekt symuluje zespół sprzedaży, który ma „swoje” fundusze. Trzeba wybrać markę ETF, dla której pytanie „kto dołoży pieniądze w następnym kwartale” jest dla modelu sensowne: nie może dokładać prawie każdy, ale pozytywów musi być dość, żeby było się czego uczyć.
+
+**Decyzja.** Rodziną domową są ETF-y JPMorgan (prefiksy CUSIP `46641Q` i `46654Q`). Pozytyw to filer, który w kwartale t+1 dołożył do rodziny ponad **1 mln USD** nowych pieniędzy, liczonych jako zmiana liczby akcji po splitach razy cena z t+1. Sam wzrost kursu się nie liczy.
+
+| Marka | Posiadacze | % wszystkich filerów z pozytywem | Ocena |
+| --- | --- | --- | --- |
+| iShares, Vanguard, SPDR | 4 900–5 500 | 18–27% | dokłada prawie każdy duży filer, model uczyłby się tylko wielkości |
+| Invesco | 4 365 | 13,0% | na granicy |
+| **JPMorgan** | 2 363 | **8,6%** | wybrana |
+| Schwab, Dimensional | 1 900–3 200 | 8,1–8,2% | podobne liczby, ale słabiej pasują (niżej) |
+
+Średnie z 6 przejść kwartalnych (2024-12-31 → 2026-03-31), na około 7 800 filerach obecnych w obu kwartałach.
+
+**Dlaczego JPMorgan.** To tradycyjny, aktywny zarządzający z linią ETF (m.in. JEPI, JPST), czyli ten sam typ firmy co UBS Asset Management. Schwab jest powiązany z własną platformą brokerską, co miesza sygnał. Dimensional to firma czysto funduszowa.
+
+**Dlaczego 1 mln USD.**
+
+| Próg | % wszystkich | % posiadaczy | % prospektów |
+| --- | --- | --- | --- |
+| 100 tys. USD | 16,0 | 47,9 | 2,19 |
+| 500 tys. USD | 11,2 | 34,3 | 1,17 |
+| **1 mln USD** | **8,6** | **26,8** | **0,82** |
+| 5 mln USD | 3,5 | 11,0 | 0,33 |
+
+Przy 100 tys. USD pozytywem jest prawie połowa posiadaczy, co w dużej części jest zwykłym rebalansowaniem. Przy 5 mln USD zostaje około 18 pozytywów wśród prospektów na kwartał, za mało, żeby model nauczył się czegokolwiek o nowych klientach. 1 mln USD to kwota, przy której zespół sprzedaży faktycznie dzwoni.
+
+**Jak znaleziono prefiksy.** Nazwa emitenta to wolny tekst, więc posłużyła tylko do znalezienia prefiksów (pierwsze 6 znaków CUSIP to trust). Prefiksy `46641Q` i `46654Q` zawierają wyłącznie „J P MORGAN EXCHANGE TRADED F”. Pozostałe papiery z „JPMorgan” w nazwie to akcje i obligacje banku, fundusze inwestycyjne (nie ETF-y) albo ETF-y innych marek na indeksach JPM.
+
+**Ograniczenia.**
+
+- Próg wybrano na wszystkich 6 przejściach, a nie tylko na treningowych. To decyzja z grubsza, z tabeli o kilku wartościach, a nie strojenie pod test.
+- Rozkład jest nierówny: wśród posiadaczy pozytywem jest 26,8%, a wśród prospektów 0,82%. Wyniki modelu raportujemy osobno dla obu grup.
+
+Dowody: `notebooks/03_house_family.ipynb`. Konfiguracja: `config/house.yaml`, `config/target.yaml`.
