@@ -1,0 +1,24 @@
+# Filerzy usunięci z panelu w całości: ich ruchy w rodzinie domowej to nie decyzja klienta.
+# Uzasadnienie: docs/decisions.md. Dowody: notebooks/04_exclusions.ipynb.
+exclusions:
+  - {cik: "0000019617", name: JPMORGAN CHASE & CO, reason: house}
+  - {cik: "0001595888", name: JANE STREET GROUP, reason: market_maker}
+  - {cik: "0001446194", name: SUSQUEHANNA INTERNATIONAL GROUP, reason: market_maker}
+  - {cik: "0001423053", name: CITADEL ADVISORS, reason: market_maker}
+  - {cik: "0001466697", name: FLOW TRADERS U.S., reason: market_maker}
+  - {cik: "0001455915", name: OLD MISSION CAPITAL, reason: market_maker}
+  - {cik: "0001452861", name: IMC-CHICAGO, reason: market_maker}
+  - {cik: "0001452765", name: GTS SECURITIES, reason: market_maker}
+  - {cik: "0001450144", name: TWO SIGMA SECURITIES, reason: market_maker}
+  - {cik: "0001475597", name: HRT FINANCIAL, reason: market_maker}
+  - {cik: "0001828301", name: XTX TOPCO, reason: market_maker}
+  - {cik: "0001533964", name: VIRTU FINANCIAL, reason: market_maker}
+  - {cik: "0001488542", name: SIMPLEX TRADING, reason: market_maker}
+  - {cik: "0000927337", name: WOLVERINE TRADING, reason: market_maker}
+  - {cik: "0001859606", name: OPTIVER HOLDING, reason: market_maker}
+  - {cik: "0001166588", name: BNP PARIBAS FINANCIAL MARKETS, reason: market_maker}
+  - {cik: "0001313360", name: SG AMERICAS SECURITIES, reason: market_maker}
+  - {cik: "0001421224", name: CIBC WORLD MARKET INC., reason: market_maker}
+  - {cik: "0001056527", name: CIBC WORLD MARKETS CORP, reason: market_maker}
+  - {cik: "0001834011", name: LEGACY FINANCIAL GROUP, reason: data_error}
+  - {cik: "0001705929", name: QUATTRO FINANCIAL ADVISORS, reason: data_error}

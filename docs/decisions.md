@@ -85,3 +85,28 @@ Przy 100 tys. USD pozytywem jest prawie połowa posiadaczy, co w dużej części
 - Rozkład jest nierówny: wśród posiadaczy pozytywem jest 26,8%, a wśród prospektów 0,82%. Wyniki modelu raportujemy osobno dla obu grup.
 
 Dowody: `notebooks/03_house_family.ipynb`. Konfiguracja: `config/house.yaml`, `config/target.yaml`.
+
+## Wykluczenia
+
+**Problem.** Część filerów rusza ETF-ami JPMorgan z powodów innych niż decyzja klienta: zarządza nimi, obsługuje handel nimi albo ma błędy w raportach. Gdyby zostali w panelu, model uczyłby się przewidywać szum.
+
+**Decyzja.** Wykluczamy 21 filerów w całości (nie trenujemy i nie oceniamy na nich). Lista z CIK i powodem jest w `config/exclusions.yaml`.
+
+| Powód | Kto | Dlaczego |
+| --- | --- | --- |
+| `house` | JPMorgan Chase | trzyma własne ETF-y jako zarządzający (kapitał startowy, obsługa jednostek, private bank); zespół sprzedaży nie dzwoni do własnej firmy |
+| `market_maker` | m.in. Jane Street, Susquehanna, Citadel, Flow Traders, Old Mission, IMC, Virtu, Optiver, dealerzy BNP, SG i CIBC (18 filerów) | trzymają ETF-y jako zapas do handlu; obrót 0,3–1,1 pozycji na kwartał przy medianie 0,13 |
+| `data_error` | Legacy Financial Group, Quattro Financial Advisors | Legacy w dwóch kwartałach raportuje ponad 400 mld USD przy portfelu około 0,5 mld (w tym 56 mld w ETF-ach JPMorgan); Quattro ma błędną liczbę akcji (2 mln USD pozycji, 200 mln „obrotu” na kwartał) |
+
+Obrót to średnio przehandlowane w kwartale podzielone przez średnio trzymane. Kandydatów szukano na dwa sposoby: najwięksi pod względem obrotu w USD oraz znane nazwy animatorów rynku i dealerów.
+
+**Dlaczego duzi dystrybutorzy zostają.** Morgan Stanley, LPL, Bank of America, Raymond James czy UBS sumują w 13F pozycje tysięcy doradców i ich klientów. To najważniejsze cele prawdziwej sprzedaży ETF, a ich obrót (0,08–0,2) jest typowy dla inwestorów, nie dla pośredników.
+
+**Skutek.** Wykluczenia zabierają 47 z 4 053 pozytywów (1,2%), ale 12,0 z 88,6 mld USD nowych pieniędzy (13,5%), głównie przez JPMorgan i Legacy. Pozostałe 4 006 pozytywów to 76,6 mld USD.
+
+**Ograniczenia.**
+
+- Lista animatorów rynku powstała z nazw i obrotu, więc mniejsi, nieznani pośrednicy mogą zostać w danych.
+- Legacy to objaw szerszego problemu: raporty z wartościami zawyżonymi około 1000 razy (około 5 300 wierszy). Korekta jednostek łapie tylko zaniżone. Wykluczenie usuwa najgorszy przypadek, ale nie naprawia przyczyny.
+
+Dowody: `notebooks/04_exclusions.ipynb`. Konfiguracja: `config/exclusions.yaml`.
