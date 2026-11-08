@@ -6,6 +6,22 @@ A sales-insights tool for an asset manager's client coverage team, built on real
 
 > **Status:** in development. Every number in this README comes from runs of the code in this repository. Nothing is an estimate.
 
+## Progress
+
+| Step | State | Key result |
+|---|---|---|
+| Load SEC ZIPs → Parquet | done | 48.0M holding rows, filings Jan 2023 – Aug 2026 |
+| Amendments, point-in-time vs final versions | done | 114,143 active reports (point in time) |
+| `VALUE` reported in thousands | done | 8,043 reports corrected ×1000; 134 mixed reports dropped |
+| Stock splits | done | 214 splits found from holder share changes (NVIDIA 10:1, Broadcom 10:1, …) |
+| House family and target | done | JPMorgan ETFs; positive = over $1M net new money next quarter |
+| Exclusions | done | JPMorgan itself, 18 market makers, 2 broken filers |
+| Filer-quarter panel with label | done | 112,140 rows, 10,443 filers; 6–9% positives per quarter |
+| Baselines and models | next | |
+| R Shiny app | planned | |
+
+Decisions behind each step, with thresholds and their evidence, are in [`docs/decisions.md`](docs/decisions.md); the evidence notebooks are in [`notebooks/`](notebooks/).
+
 ---
 
 ## The users and the problem
@@ -26,11 +42,11 @@ A sales-insights tool for an asset manager's client coverage team, built on real
 
 | Source | Content | Access |
 |---|---|---|
-| SEC Form 13F data sets | Quarterly holdings of US institutional investment managers with at least $100M in 13(f) securities: issuer, CUSIP, class, value, shares; filer name and address | Free bulk ZIP files from the SEC, from 2013 Q2 |
+| SEC Form 13F data sets | Quarterly holdings of US institutional investment managers with at least $100M in 13(f) securities: issuer, CUSIP, class, value, shares; filer name and address | Free bulk ZIP files from the SEC; this project uses filings from January 2023 to August 2026 |
 
 Institutions file Form 13F within 45 days of quarter end. ETFs are 13(f) securities, so every filer's ETF holdings, including the house's ETFs and competitors', are visible quarter by quarter.
 
-**The house** is a configurable ETF family (`config/house.yaml`: issuer-name patterns and CUSIP list). The default is a mid-sized family. The project describes behaviour visible in public filings and makes no claims about any firm's actual clients.
+**The house** is a configurable ETF family (`config/house.yaml`: CUSIP issuer prefixes). The default is **JPMorgan's ETF line**: an active manager with an ETF business, with 8.6% of filers adding over $1M in a quarter, compared with 18–27% for iShares, Vanguard and SPDR, where almost every large filer buys and a model would only learn size. The project describes behaviour visible in public filings and makes no claims about any firm's actual clients.
 
 **Data pitfalls handled in code** (and documented in `docs/data_note.md`):
 - amendments: restatements replace the original filing; new-holdings amendments add to it;
@@ -105,17 +121,20 @@ All ranking versions are scored on the same out-of-time test quarters. Changes t
 
 ```
 coverage-radar/
-├── config/            house.yaml, target.yaml (threshold $X, capacity K), splits.yaml
+├── config/            house.yaml, target.yaml, exclusions.yaml
 ├── data/              raw/ (git-ignored ZIPs), processed/ (Parquet)
+├── notebooks/         evidence for each data decision
 ├── src/radar/
-│   ├── load.py         ZIP → Parquet, amendments, period of report, units
-│   ├── panel.py        filer-quarter panel, house vs competitor exposure
-│   ├── features.py     size, ETF share, momentum, turnover, territory, filer type
-│   ├── target.py       net new money from share changes
-│   ├── models.py       baselines, logistic, LightGBM
-│   ├── evaluate.py     hits@K, money@K, lift, calibration, stability
-│   ├── reasons.py      SHAP → plain-language reasons
-│   └── briefing/       fact_sheet.py, generate.py, check_numbers.py
+│   ├── load.py         ZIP → Parquet
+│   ├── panel.py        active filings, positions, unit corrections (SQL in sql/)
+│   ├── prices.py       implied prices from holdings
+│   ├── splits.py       split factors from holder share changes
+│   ├── dataset.py      holdings, net new money, filer-quarter panel with label
+│   ├── sql/            the queries behind the modules above
+│   ├── features.py     planned: size, ETF share, momentum, competitor holdings
+│   ├── models.py       planned: baselines, logistic, LightGBM
+│   ├── evaluate.py     planned: hits@K, money@K, lift, calibration, stability
+│   └── reasons.py      planned: SHAP → plain-language reasons
 ├── app/               R Shiny app (reads Parquet via arrow)
 ├── docs/
 │   ├── data_note.md, decisions.md
@@ -129,13 +148,13 @@ coverage-radar/
 ```bash
 pip install -e ".[dev]"
 # download 13F data set ZIPs from the SEC into data/raw/
-make data        # load, clean, panel
-make train       # baselines and models, out-of-time
-make evaluate    # tables and plots for this README
-make briefings   # briefings for the latest call list, with number checks
-make app         # R Shiny app on localhost
+python -m radar.load       # ZIP → Parquet
+python -m radar.panel      # positions: amendments, point in time vs final, unit corrections
+python -m radar.dataset    # filer-quarter panel with label
 pytest
 ```
+
+Model training, evaluation and the app are not built yet (see Progress).
 
 ## Results
 

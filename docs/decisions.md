@@ -110,3 +110,21 @@ Obrót to średnio przehandlowane w kwartale podzielone przez średnio trzymane.
 - Legacy to objaw szerszego problemu: raporty z wartościami zawyżonymi około 1000 razy (około 5 300 wierszy). Korekta jednostek łapie tylko zaniżone. Wykluczenie usuwa najgorszy przypadek, ale nie naprawia przyczyny.
 
 Dowody: `notebooks/04_exclusions.ipynb`. Konfiguracja: `config/exclusions.yaml`.
+
+## Panel i etykieta
+
+**Decyzja.** Wiersz panelu to filer w kwartale t, z raportem w t. Prospekci bez ETF-ów JPMorgan też mają wiersz (`house_value` = 0), bo to oni są nowymi klientami.
+
+| Element | Wersja danych | Definicja |
+| --- | --- | --- |
+| Cechy (`house_value`, `new_money_t` itd.) | punkt w czasie | tylko to, co było znane 50 dni po końcu kwartału t |
+| Etykieta (`label`) | końcowa | nowe pieniądze w t+1 powyżej 1 mln USD |
+| Nowe pieniądze | obie | suma po papierach rodziny: (akcje w t+1 − akcje w t × faktor splitu) × mediana ceny z t+1 |
+
+**Dlaczego dwie wersje.** Cechy z wersji końcowej znałyby poprawki złożone miesiące po dniu decyzji, a model wyglądałby lepiej niż w praktyce. Etykieta to fakt o przyszłości, więc bierze najlepszą dostępną wiedzę.
+
+**Brak etykiety.** Gdy filer nie ma raportu w t+1, etykieta jest pusta, a nie 0. Tak samo dla ostatniego kwartału. W treningu te wiersze pomijamy. W ocenie na teście filer, który zniknął, liczy się jako pudło, bo sprzedawca zadzwoniłby na próżno.
+
+**Pierwszy zakup i sprzedaż całości.** Papier, którego filer nie ma w jednym z dwóch kwartałów, ma tam 0 akcji. Dzięki temu pierwszy zakup prospekta jest pozytywem, a sprzedaż całości daje ujemne nowe pieniądze.
+
+Kod: `src/radar/dataset.py`, `src/radar/sql/holdings.sql`, `flows.sql`, `panel.sql`. Testy: `tests/test_dataset.py`.
